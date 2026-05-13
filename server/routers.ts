@@ -61,10 +61,6 @@ export function normalizeOptionalDecimal(value: OptionalDecimalInput): string | 
   return trimmedValue === "" ? null : trimmedValue;
 }
 
-function formatUnknownError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function calculateVatAmount(amount: string | null, amountNotSpecified: boolean | undefined, vatRate: number): string | null {
   if (!amount || amountNotSpecified || vatRate <= 0) {
     return null;
@@ -363,7 +359,7 @@ const contractsRouter = router({
         }
       } catch (error) {
         console.error(
-          `[DOCUMENT] Failed to generate contract document for ${contract.contractNumber}: ${formatUnknownError(error)}`
+          `[DOCUMENT] Failed to generate contract document for ${contract.contractNumber}: ${getErrorMessage(error)}`
         );
       }
 
@@ -404,7 +400,7 @@ const contractsRouter = router({
         }
       } catch (error) {
         console.error(
-          `[DOCUMENT] Failed to generate act for ${contract.contractNumber}: ${formatUnknownError(error)}`
+          `[DOCUMENT] Failed to generate act for ${contract.contractNumber}: ${getErrorMessage(error)}`
         );
       }
 

@@ -142,26 +142,8 @@ export async function storagePut(
   const key = normalizeKey(relKey);
   const config = getStorageConfig();
 
-  if (!config) {
-    return await writeLocalFile(key, data);
-  }
-
-  try {
-    const uploadUrl = buildUploadUrl(config.baseUrl, key);
-    const formData = toFormData(data, contentType, key.split("/").pop() ?? key);
-    const response = await fetch(uploadUrl, {
-      method: "POST",
-      headers: buildAuthHeaders(config.apiKey),
-      body: formData,
-    });
-
-    const payload = await readStorageJson(response, "upload");
-    return { key, url: getStorageUrl(payload, "upload") };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn(`[Storage] Falling back to local file storage for ${key}: ${message}`);
-    return await writeLocalFile(key, data);
-  }
+  const payload = await readStorageJson(response, "upload");
+  return { key, url: getStorageUrl(payload, "upload") };
 }
 
 export async function storageGet(relKey: string): Promise<{ key: string; url: string; }> {
