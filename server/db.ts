@@ -225,11 +225,41 @@ export async function generateContractNumber(): Promise<string> {
   return `ДП-${currentYear}-${paddedNumber}`;
 }
 
+
+// Normalize insert values at the database boundary so MySQL never receives blank
+// strings for nullable DECIMAL columns or DEFAULT for nullable fields from forms.
+function normalizeNullableDecimal(value: string | null | undefined): string | null {
+  if (value == null) return null;
+
+  const trimmedValue = value.trim();
+  return trimmedValue === "" ? null : trimmedValue;
+}
+
+export function normalizeContractInsert(data: InsertContract): InsertContract {
+  const amount = normalizeNullableDecimal(data.amount);
+  const amountMissing = data.amountNotSpecified || amount === null;
+
+  return {
+    ...data,
+    amount: amountMissing ? null : amount,
+    vatAmount: amountMissing ? null : normalizeNullableDecimal(data.vatAmount),
+    validUntil: data.validUntil ?? null,
+    customerName: data.customerName ?? null,
+    counterpartyInn: data.counterpartyInn ?? null,
+    counterpartyEmail: data.counterpartyEmail ?? null,
+    createdByUserId: data.createdByUserId ?? null,
+    responsibleUserId: data.responsibleUserId ?? null,
+    generatedContractUrl: data.generatedContractUrl ?? null,
+    generatedActUrl: data.generatedActUrl ?? null,
+    rejectionComment: data.rejectionComment ?? null,
+  };
+}
+
 export async function createContract(data: InsertContract): Promise<number> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   
-  const result = await db.insert(contracts).values(data);
+  const result = await db.insert(contracts).values(normalizeContractInsert(data));
   return Number(result[0].insertId);
 }
 

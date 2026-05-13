@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { appRouter, normalizeOptionalDecimal } from "./routers";
+import { normalizeContractInsert } from "./db";
 import type { TrpcContext } from "./_core/context";
 import {
   CONTRACT_STATUSES,
@@ -45,6 +46,57 @@ describe("Optional decimal normalization", () => {
 
   it("preserves entered decimal values after trimming whitespace", () => {
     expect(normalizeOptionalDecimal(" 1000.50 ")).toBe("1000.50");
+  });
+});
+
+
+describe("Contract insert normalization", () => {
+  it("stores nullable MySQL columns as null when an amount is not specified", () => {
+    const normalized = normalizeContractInsert({
+      contractNumber: "ДП-2026-001",
+      contractDate: new Date("2026-05-13T00:00:00.000Z"),
+      subject: "Разработка ПО",
+      contractType: "supply",
+      status: "draft",
+      amount: "",
+      amountNotSpecified: true,
+      vatRate: 22,
+      vatAmount: "0",
+      prolongation: false,
+      customerInn: "7707083893",
+      customerName: 'ООО "Рога и копыта"',
+      counterpartyId: 2,
+      counterpartyInn: "1111111111",
+      counterpartyEmail: "ahlypalo123@gmail.com",
+      paymentFrequency: "none",
+      createdByUserId: 1,
+    });
+
+    expect(normalized.amount).toBeNull();
+    expect(normalized.vatAmount).toBeNull();
+    expect(normalized.validUntil).toBeNull();
+    expect(normalized.responsibleUserId).toBeNull();
+  });
+
+  it("trims specified DECIMAL values before insert", () => {
+    const normalized = normalizeContractInsert({
+      contractNumber: "ДП-2026-002",
+      contractDate: new Date("2026-05-13T00:00:00.000Z"),
+      subject: "Разработка ПО",
+      contractType: "supply",
+      status: "draft",
+      amount: " 122000.00 ",
+      amountNotSpecified: false,
+      vatRate: 22,
+      vatAmount: " 22000.00 ",
+      prolongation: false,
+      customerInn: "7707083893",
+      counterpartyId: 2,
+      paymentFrequency: "none",
+    });
+
+    expect(normalized.amount).toBe("122000.00");
+    expect(normalized.vatAmount).toBe("22000.00");
   });
 });
 

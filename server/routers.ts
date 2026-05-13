@@ -61,9 +61,13 @@ export function normalizeOptionalDecimal(value: OptionalDecimalInput): string | 
   return trimmedValue === "" ? null : trimmedValue;
 }
 
-function calculateVatAmount(amount: string | null, amountNotSpecified: boolean | undefined, vatRate: number): string {
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function calculateVatAmount(amount: string | null, amountNotSpecified: boolean | undefined, vatRate: number): string | null {
   if (!amount || amountNotSpecified || vatRate <= 0) {
-    return "0";
+    return null;
   }
 
   return ((parseFloat(amount) * vatRate) / (100 + vatRate)).toFixed(2);
@@ -128,7 +132,7 @@ const contractsRouter = router({
       
       // Convert empty amount strings from the form to NULL for MySQL DECIMAL columns.
       const amount = normalizeOptionalDecimal(input.amount);
-      const vatRate = input.vatRate || 22;
+      const vatRate = input.vatRate ?? 22;
       const vatAmount = calculateVatAmount(amount, input.amountNotSpecified, vatRate);
 
       const contractId = await createContract({
@@ -321,72 +325,87 @@ const contractsRouter = router({
         input.userInn // Exclude actor's organization
       );
 
-      // Generate contract document on first save (draft -> pending_customer)
-      if (currentStatus === "draft" && input.newStatus === "pending_customer" && !contract.generatedContractUrl) {
-        const counterparty = await getCounterpartyById(contract.counterpartyId);
-        if (counterparty) {
-          const html = generateContractHtml(contract, counterparty, contract.customerName || 'ООО "Рога и копыта"');
-          const fileKey = `contracts/${contract.id}/contract-${contract.contractNumber}.html`;
-          const { url } = await storagePut(fileKey, Buffer.from(html), "text/html");
-          await updateContract(contract.id, { generatedContractUrl: url });
-          await addContractFile({
-            contractId: contract.id,
-            fileName: `contract-${contract.contractNumber}.html`,
-            originalName: `Договор ${contract.contractNumber}.html`,
-            fileUrl: url,
-            fileKey,
-            fileSize: Buffer.from(html).length,
-            mimeType: "text/html",
-            fileType: "contract",
-            uploadedByUserName: "Система",
-          });
-          
-          // Log file addition to history
-          await addContractHistory({
-            contractId: contract.id,
-            eventType: "file_added",
-            fileName: `Договор ${contract.contractNumber}.html`,
-            fileType: "contract",
-            userId: input.changedByUserId,
-            userName: "Система",
-          });
-          
-          console.log(`[DOCUMENT] Generated contract document for ${contract.contractNumber}`);
+      // Generate contract document on first save (draft -> pending_customer).
+      // Document storage can be unavailable or return an HTML error page when proxy
+      // settings are wrong; this must not roll back a valid status transition.
+      try {
+        if (currentStatus === "draft" && input.newStatus === "pending_customer" && !contract.generatedContractUrl) {
+          const counterparty = await getCounterpartyById(contract.counterpartyId);
+          if (counterparty) {
+            const html = generateContractHtml(contract, counterparty, contract.customerName || 'ООО "Рога и копыта"');
+            const fileKey = `contracts/${contract.id}/contract-${contract.contractNumber}.html`;
+            const { url } = await storagePut(fileKey, Buffer.from(html), "text/html");
+            await updateContract(contract.id, { generatedContractUrl: url });
+            await addContractFile({
+              contractId: contract.id,
+              fileName: `contract-${contract.contractNumber}.html`,
+              originalName: `Договор ${contract.contractNumber}.html`,
+              fileUrl: url,
+              fileKey,
+              fileSize: Buffer.from(html).length,
+              mimeType: "text/html",
+              fileType: "contract",
+              uploadedByUserName: "Система",
+            });
+            
+            // Log file addition to history
+            await addContractHistory({
+              contractId: contract.id,
+              eventType: "file_added",
+              fileName: `Договор ${contract.contractNumber}.html`,
+              fileType: "contract",
+              userId: input.changedByUserId,
+              userName: "Система",
+            });
+            
+            console.log(`[DOCUMENT] Generated contract document for ${contract.contractNumber}`);
+          }
         }
+      } catch (error) {
+        console.error(
+          `[DOCUMENT] Failed to generate contract document for ${contract.contractNumber}: ${getErrorMessage(error)}`
+        );
       }
 
-      // Generate act when status changes to "act_signing" (подписание акта)
-      if (input.newStatus === "act_signing" && !contract.generatedActUrl) {
-        const counterparty = await getCounterpartyById(contract.counterpartyId);
-        if (counterparty) {
-          const html = generateActHtml(contract, counterparty, contract.customerName || 'ООО "Рога и копыта"');
-          const fileKey = `contracts/${contract.id}/act-${contract.contractNumber}.html`;
-          const { url } = await storagePut(fileKey, Buffer.from(html), "text/html");
-          await updateContract(contract.id, { generatedActUrl: url });
-          await addContractFile({
-            contractId: contract.id,
-            fileName: `act-${contract.contractNumber}.html`,
-            originalName: `Акт ${contract.contractNumber}.html`,
-            fileUrl: url,
-            fileKey,
-            fileSize: Buffer.from(html).length,
-            mimeType: "text/html",
-            fileType: "act",
-            uploadedByUserName: "Система",
-          });
-          
-          // Log file addition to history
-          await addContractHistory({
-            contractId: contract.id,
-            eventType: "file_added",
-            fileName: `Акт ${contract.contractNumber}.html`,
-            fileType: "act",
-            userId: input.changedByUserId,
-            userName: "Система",
-          });
-          
-          console.log(`[DOCUMENT] Generated act for ${contract.contractNumber}`);
+      // Generate act when status changes to "act_signing" (подписание акта).
+      // Keep the workflow moving even if the external storage proxy fails.
+      try {
+        if (input.newStatus === "act_signing" && !contract.generatedActUrl) {
+          const counterparty = await getCounterpartyById(contract.counterpartyId);
+          if (counterparty) {
+            const html = generateActHtml(contract, counterparty, contract.customerName || 'ООО "Рога и копыта"');
+            const fileKey = `contracts/${contract.id}/act-${contract.contractNumber}.html`;
+            const { url } = await storagePut(fileKey, Buffer.from(html), "text/html");
+            await updateContract(contract.id, { generatedActUrl: url });
+            await addContractFile({
+              contractId: contract.id,
+              fileName: `act-${contract.contractNumber}.html`,
+              originalName: `Акт ${contract.contractNumber}.html`,
+              fileUrl: url,
+              fileKey,
+              fileSize: Buffer.from(html).length,
+              mimeType: "text/html",
+              fileType: "act",
+              uploadedByUserName: "Система",
+            });
+            
+            // Log file addition to history
+            await addContractHistory({
+              contractId: contract.id,
+              eventType: "file_added",
+              fileName: `Акт ${contract.contractNumber}.html`,
+              fileType: "act",
+              userId: input.changedByUserId,
+              userName: "Система",
+            });
+            
+            console.log(`[DOCUMENT] Generated act for ${contract.contractNumber}`);
+          }
         }
+      } catch (error) {
+        console.error(
+          `[DOCUMENT] Failed to generate act for ${contract.contractNumber}: ${getErrorMessage(error)}`
+        );
       }
 
       // Log email notification (stub)
