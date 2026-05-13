@@ -52,6 +52,23 @@ import {
 import { nanoid } from "nanoid";
 import { generateContractHtml, generateActHtml } from "./pdfGenerator";
 
+type OptionalDecimalInput = string | null | undefined;
+
+export function normalizeOptionalDecimal(value: OptionalDecimalInput): string | null {
+  if (value == null) return null;
+
+  const trimmedValue = value.trim();
+  return trimmedValue === "" ? null : trimmedValue;
+}
+
+function calculateVatAmount(amount: string | null, amountNotSpecified: boolean | undefined, vatRate: number): string {
+  if (!amount || amountNotSpecified || vatRate <= 0) {
+    return "0";
+  }
+
+  return ((parseFloat(amount) * vatRate) / (100 + vatRate)).toFixed(2);
+}
+
 // ============ CONTRACTS ROUTER ============
 const contractsRouter = router({
   list: publicProcedure
@@ -109,15 +126,10 @@ const contractsRouter = router({
     .mutation(async ({ input }) => {
       const contractNumber = input.contractNumber || await generateContractNumber();
       
-      // Calculate VAT based on vatRate (22% or 0 for "Без НДС")
-      let vatAmount: string | undefined;
+      // Convert empty amount strings from the form to NULL for MySQL DECIMAL columns.
+      const amount = normalizeOptionalDecimal(input.amount);
       const vatRate = input.vatRate || 22;
-      if (input.amount && !input.amountNotSpecified && vatRate > 0) {
-        const amount = parseFloat(input.amount);
-        vatAmount = ((amount * vatRate) / (100 + vatRate)).toFixed(2);
-      } else {
-        vatAmount = "0";
-      }
+      const vatAmount = calculateVatAmount(amount, input.amountNotSpecified, vatRate);
 
       const contractId = await createContract({
         contractNumber,
@@ -125,7 +137,7 @@ const contractsRouter = router({
         subject: input.subject,
         contractType: input.contractType,
         status: "draft",
-        amount: input.amountNotSpecified ? null : input.amount,
+        amount: input.amountNotSpecified ? null : amount,
         amountNotSpecified: input.amountNotSpecified,
         vatRate: vatRate,
         vatAmount: vatAmount,
@@ -180,22 +192,17 @@ const contractsRouter = router({
       counterpartyEmail: z.string().email().optional(),
     }))
     .mutation(async ({ input }) => {
-      const { id, validUntil, vatRate, ...rest } = input;
-      
-      // Calculate VAT based on vatRate (22% or 0 for "Без НДС")
-      let vatAmount: string | undefined;
+      const { id, validUntil, vatRate, amount: rawAmount, amountNotSpecified, ...rest } = input;
+      const amount = normalizeOptionalDecimal(rawAmount);
       const effectiveVatRate = vatRate ?? 22;
-      if (rest.amount && !rest.amountNotSpecified && effectiveVatRate > 0) {
-        const amount = parseFloat(rest.amount);
-        vatAmount = ((amount * effectiveVatRate) / (100 + effectiveVatRate)).toFixed(2);
-      } else if (rest.amount) {
-        vatAmount = "0";
-      }
+      const shouldUpdateAmount = rawAmount !== undefined || amountNotSpecified !== undefined;
 
       await updateContract(id, {
         ...rest,
+        ...(amountNotSpecified !== undefined ? { amountNotSpecified } : {}),
+        ...(shouldUpdateAmount ? { amount: amountNotSpecified ? null : amount } : {}),
         vatRate: effectiveVatRate,
-        vatAmount,
+        vatAmount: shouldUpdateAmount ? calculateVatAmount(amount, amountNotSpecified, effectiveVatRate) : undefined,
         validUntil: validUntil ? new Date(validUntil) : undefined,
       });
 

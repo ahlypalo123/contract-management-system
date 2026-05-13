@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appRouter } from "./routers";
+import { appRouter, normalizeOptionalDecimal } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import {
   CONTRACT_STATUSES,
@@ -35,6 +35,18 @@ function createMockContext(): TrpcContext {
     } as TrpcContext["res"],
   };
 }
+
+describe("Optional decimal normalization", () => {
+  it("converts blank form values to null for nullable DECIMAL columns", () => {
+    expect(normalizeOptionalDecimal("")).toBeNull();
+    expect(normalizeOptionalDecimal("   ")).toBeNull();
+    expect(normalizeOptionalDecimal(undefined)).toBeNull();
+  });
+
+  it("preserves entered decimal values after trimming whitespace", () => {
+    expect(normalizeOptionalDecimal(" 1000.50 ")).toBe("1000.50");
+  });
+});
 
 describe("Contract Number Generation", () => {
   it("generates contract number in correct format ДП-YYYY-NNN", async () => {
