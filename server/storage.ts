@@ -1,10 +1,16 @@
 // Preconfigured storage helpers for Manus WebDev templates
-// Uses the Biz-provided storage proxy (Authorization: Bearer <token>)
+// Uses the Biz-provided storage proxy (Authorization: Bearer <token>) and
+// falls back to local disk storage for standalone/local deployments.
 
-import { ENV } from './_core/env';
+import fs from "fs/promises";
+import path from "path";
+import { ENV } from "./_core/env";
 
 type StorageConfig = { baseUrl: string; apiKey: string };
 type StoragePayload = { url?: unknown; message?: unknown; error?: unknown };
+
+const localStorageRoot = path.resolve(process.cwd(), "uploads");
+const localStorageUrlPrefix = "/uploads";
 
 function getStorageConfig(): StorageConfig {
   const baseUrl = ENV.forgeApiUrl;
@@ -80,12 +86,60 @@ function formatResponseSnippet(text: string): string {
   return text.replace(/\s+/g, " ").trim().slice(0, 200) || "<empty response>";
 }
 
-export async function readStorageJson(response: Response, operation: string): Promise<StoragePayload> {
+function isLocalForgeUrl(baseUrl: string): boolean {
+  try {
+    const { hostname } = new URL(baseUrl);
+    return (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "0.0.0.0"
+    );
+  } catch {
+    return false;
+  }
+}
+
+function shouldFallbackToLocalStorage(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+
+  return error.message.includes("returned non-JSON response");
+}
+
+function buildLocalStorageUrl(key: string): string {
+  return `${localStorageUrlPrefix}/${key.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+export function getLocalStorageRoot(): string {
+  return localStorageRoot;
+}
+
+async function storagePutLocal(
+  relKey: string,
+  data: Buffer | Uint8Array | string
+): Promise<{ key: string; url: string }> {
+  const key = normalizeKey(relKey);
+  const filePath = path.resolve(localStorageRoot, key);
+  const relativePath = path.relative(localStorageRoot, filePath);
+
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+    throw new Error("Invalid storage key");
+  }
+
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, data);
+
+  return { key, url: buildLocalStorageUrl(key) };
+}
+
+export async function readStorageJson(
+  response: Response,
+  operation: string
+): Promise<StoragePayload> {
   const text = await response.text();
   let payload: StoragePayload;
 
   try {
-    payload = text ? JSON.parse(text) as StoragePayload : {};
+    payload = text ? (JSON.parse(text) as StoragePayload) : {};
   } catch {
     throw new Error(
       `Storage ${operation} returned non-JSON response (${response.status} ${response.statusText}): ${formatResponseSnippet(text)}`
@@ -114,8 +168,16 @@ export async function storagePut(
   data: Buffer | Uint8Array | string,
   contentType = "application/octet-stream"
 ): Promise<{ key: string; url: string }> {
-  const { baseUrl, apiKey } = getStorageConfig();
   const key = normalizeKey(relKey);
+  const { baseUrl, apiKey } = getStorageConfig();
+
+  if (isLocalForgeUrl(baseUrl)) {
+    console.warn(
+      "Storage proxy points to the local app; saving file to local storage instead."
+    );
+    return await storagePutLocal(key, data);
+  }
+
   const uploadUrl = buildUploadUrl(baseUrl, key);
   const formData = toFormData(data, contentType, key.split("/").pop() ?? key);
   const response = await fetch(uploadUrl, {
@@ -124,13 +186,31 @@ export async function storagePut(
     body: formData,
   });
 
-  const payload = await readStorageJson(response, "upload");
-  return { key, url: getStorageUrl(payload, "upload") };
+  try {
+    const payload = await readStorageJson(response, "upload");
+    return { key, url: getStorageUrl(payload, "upload") };
+  } catch (error) {
+    if (shouldFallbackToLocalStorage(error)) {
+      console.warn(
+        `${error instanceof Error ? error.message : "Storage proxy returned an invalid response"}. Saving file to local storage instead.`
+      );
+      return await storagePutLocal(key, data);
+    }
+
+    throw error;
+  }
 }
 
-export async function storageGet(relKey: string): Promise<{ key: string; url: string; }> {
+export async function storageGet(
+  relKey: string
+): Promise<{ key: string; url: string }> {
   const { baseUrl, apiKey } = getStorageConfig();
   const key = normalizeKey(relKey);
+
+  if (isLocalForgeUrl(baseUrl)) {
+    return { key, url: buildLocalStorageUrl(key) };
+  }
+
   return {
     key,
     url: await buildDownloadUrl(baseUrl, key, apiKey),

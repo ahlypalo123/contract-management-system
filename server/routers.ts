@@ -54,6 +54,10 @@ import { generateContractHtml, generateActHtml } from "./pdfGenerator";
 
 type OptionalDecimalInput = string | null | undefined;
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export function normalizeOptionalDecimal(value: OptionalDecimalInput): string | null {
   if (value == null) return null;
 
