@@ -2,7 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ENV } from "./_core/env";
-import { getLocalStorageRoot, readStorageJson, storagePut } from "./storage";
+import { getLocalStorageRoot, readStorageJson, storageGet, storagePut } from "./storage";
 
 const originalForgeApiUrl = ENV.forgeApiUrl;
 const originalForgeApiKey = ENV.forgeApiKey;
@@ -88,6 +88,24 @@ describe("Storage fallback", () => {
       fs.readFile(path.join(getLocalStorageRoot(), "test/html-fallback/file.pdf"), "utf8")
     ).resolves.toBe("pdf");
     expect(result).toEqual({
+      key: "test/html-fallback/file.pdf",
+      url: "/uploads/test/html-fallback/file.pdf",
+    });
+  });
+
+
+  it("returns local URLs when download URL proxy lookup fails", async () => {
+    ENV.forgeApiUrl = "http://localhost:3000";
+    ENV.forgeApiKey = "test-key";
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("<!doctype html><title>Система управления договорами</title>", {
+        status: 200,
+        statusText: "OK",
+        headers: { "content-type": "text/html" },
+      })
+    );
+
+    await expect(storageGet("test/html-fallback/file.pdf")).resolves.toEqual({
       key: "test/html-fallback/file.pdf",
       url: "/uploads/test/html-fallback/file.pdf",
     });
