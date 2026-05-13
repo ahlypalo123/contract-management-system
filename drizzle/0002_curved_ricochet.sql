@@ -1,0 +1,2 @@
+ALTER TABLE `contracts` MODIFY COLUMN `contractType` enum('supply','rent','services','work','lease','other') NOT NULL;--> statement-breakpoint
+ALTER TABLE `contracts` MODIFY COLUMN `paymentFrequency` enum('none','once','monthly','quarterly','yearly') NOT NULL DEFAULT 'none';

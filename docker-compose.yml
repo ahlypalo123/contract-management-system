@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # MySQL база данных
+  db:
+    image: mysql:8.0
+    container_name: contract-management-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-contract_management}
+      MYSQL_USER: ${MYSQL_USER:-contract_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-contractpass123}
+    ports:
+      - "${DB_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - contract-network
+
+  # Node.js приложение
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: contract-management-app
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: mysql://${MYSQL_USER:-contract_user}:${MYSQL_PASSWORD:-contractpass123}@db:3306/${MYSQL_DATABASE:-contract_management}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production-min-32-chars}
+      VITE_APP_ID: ${VITE_APP_ID:-local-app-id}
+      OAUTH_SERVER_URL: ${OAUTH_SERVER_URL:-http://localhost:3000}
+      VITE_OAUTH_PORTAL_URL: ${VITE_OAUTH_PORTAL_URL:-http://localhost:3000}
+      OWNER_OPEN_ID: ${OWNER_OPEN_ID:-owner-id}
+      OWNER_NAME: ${OWNER_NAME:-System Owner}
+      BUILT_IN_FORGE_API_URL: ${BUILT_IN_FORGE_API_URL:-http://localhost:3000}
+      BUILT_IN_FORGE_API_KEY: ${BUILT_IN_FORGE_API_KEY:-local-api-key}
+      VITE_FRONTEND_FORGE_API_KEY: ${VITE_FRONTEND_FORGE_API_KEY:-local-frontend-key}
+      VITE_FRONTEND_FORGE_API_URL: ${VITE_FRONTEND_FORGE_API_URL:-http://localhost:3000}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-contract-files}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - contract-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/trpc"]
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # MinIO для локального S3 хранилища (опционально)
+  minio:
+    image: minio/minio:latest
+    container_name: contract-management-minio
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioadmin}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/minio_data
+    command: server /minio_data --console-address ":9001"
+    restart: unless-stopped
+    networks:
+      - contract-network
+    profiles:
+      - with-minio
+
+volumes:
+  mysql_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  contract-network:
+    driver: bridge

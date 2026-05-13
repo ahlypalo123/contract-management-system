@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE contracts \n  ADD COLUMN IF NOT EXISTS customerInn varchar(12),\n  ADD COLUMN IF NOT EXISTS customerName varchar(255),\n  ADD COLUMN IF NOT EXISTS counterpartyInn varchar(12),\n  MODIFY COLUMN status enum('draft','pending_customer','pending_contractor','awaiting_payment','paid','in_progress','act_signing','completed','rejected') NOT NULL DEFAULT 'draft';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4ZrXh2G47LDMzHc.root --database VXtoDUdEwYg7oM9YoGZrE3 --execute ALTER TABLE contracts \n  ADD COLUMN IF NOT EXISTS customerInn varchar(12),\n  ADD COLUMN IF NOT EXISTS customerName varchar(255),\n  ADD COLUMN IF NOT EXISTS counterpartyInn varchar(12),\n  MODIFY COLUMN status enum('draft','pending_customer','pending_contractor','awaiting_payment','paid','in_progress','act_signing','completed','rejected') NOT NULL DEFAULT 'draft';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 988
+}

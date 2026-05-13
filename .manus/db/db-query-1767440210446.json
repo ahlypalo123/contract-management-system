@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE contract_files \n  ADD COLUMN IF NOT EXISTS isDeleted boolean NOT NULL DEFAULT false,\n  ADD COLUMN IF NOT EXISTS deletedAt timestamp NULL,\n  ADD COLUMN IF NOT EXISTS deletedByUserId int NULL,\n  ADD COLUMN IF NOT EXISTS deletedByUserName varchar(255) NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4ZrXh2G47LDMzHc.root --database VXtoDUdEwYg7oM9YoGZrE3 --execute ALTER TABLE contract_files \n  ADD COLUMN IF NOT EXISTS isDeleted boolean NOT NULL DEFAULT false,\n  ADD COLUMN IF NOT EXISTS deletedAt timestamp NULL,\n  ADD COLUMN IF NOT EXISTS deletedByUserId int NULL,\n  ADD COLUMN IF NOT EXISTS deletedByUserName varchar(255) NULL;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1214
+}

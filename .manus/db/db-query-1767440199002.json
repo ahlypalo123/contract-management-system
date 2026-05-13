@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE predefined_users \n  MODIFY COLUMN role enum('it_head','director_roga','director_hlyp') NOT NULL,\n  ADD COLUMN IF NOT EXISTS organizationInn varchar(12) NOT NULL DEFAULT '0000000000',\n  ADD COLUMN IF NOT EXISTS canApprove boolean NOT NULL DEFAULT false;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4ZrXh2G47LDMzHc.root --database VXtoDUdEwYg7oM9YoGZrE3 --execute ALTER TABLE predefined_users \n  MODIFY COLUMN role enum('it_head','director_roga','director_hlyp') NOT NULL,\n  ADD COLUMN IF NOT EXISTS organizationInn varchar(12) NOT NULL DEFAULT '0000000000',\n  ADD COLUMN IF NOT EXISTS canApprove boolean NOT NULL DEFAULT false;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1073
+}

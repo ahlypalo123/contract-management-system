@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE IF NOT EXISTS `notifications` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `recipientUserId` int NOT NULL,\n  `recipientOrganizationInn` varchar(12) NOT NULL,\n  `contractId` int NOT NULL,\n  `contractNumber` varchar(50) NOT NULL,\n  `notificationType` enum('status_change','comment_added','file_added','file_removed') NOT NULL,\n  `title` varchar(255) NOT NULL,\n  `message` text NOT NULL,\n  `actorUserId` int,\n  `actorUserName` varchar(255),\n  `actorOrganization` varchar(255),\n  `isRead` boolean NOT NULL DEFAULT false,\n  `readAt` timestamp,\n  `createdAt` timestamp NOT NULL DEFAULT (now()),\n  CONSTRAINT `notifications_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4ZrXh2G47LDMzHc.root --database VXtoDUdEwYg7oM9YoGZrE3 --execute CREATE TABLE IF NOT EXISTS `notifications` (\n  `id` int AUTO_INCREMENT NOT NULL,\n  `recipientUserId` int NOT NULL,\n  `recipientOrganizationInn` varchar(12) NOT NULL,\n  `contractId` int NOT NULL,\n  `contractNumber` varchar(50) NOT NULL,\n  `notificationType` enum('status_change','comment_added','file_added','file_removed') NOT NULL,\n  `title` varchar(255) NOT NULL,\n  `message` text NOT NULL,\n  `actorUserId` int,\n  `actorUserName` varchar(255),\n  `actorOrganization` varchar(255),\n  `isRead` boolean NOT NULL DEFAULT false,\n  `readAt` timestamp,\n  `createdAt` timestamp NOT NULL DEFAULT (now()),\n  CONSTRAINT `notifications_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 539
+}
