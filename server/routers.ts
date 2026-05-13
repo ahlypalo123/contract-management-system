@@ -61,10 +61,6 @@ export function normalizeOptionalDecimal(value: OptionalDecimalInput): string | 
   return trimmedValue === "" ? null : trimmedValue;
 }
 
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function calculateVatAmount(amount: string | null, amountNotSpecified: boolean | undefined, vatRate: number): string | null {
   if (!amount || amountNotSpecified || vatRate <= 0) {
     return null;
