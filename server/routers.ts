@@ -61,9 +61,9 @@ export function normalizeOptionalDecimal(value: OptionalDecimalInput): string | 
   return trimmedValue === "" ? null : trimmedValue;
 }
 
-function calculateVatAmount(amount: string | null, amountNotSpecified: boolean | undefined, vatRate: number): string {
+function calculateVatAmount(amount: string | null, amountNotSpecified: boolean | undefined, vatRate: number): string | null {
   if (!amount || amountNotSpecified || vatRate <= 0) {
-    return "0";
+    return null;
   }
 
   return ((parseFloat(amount) * vatRate) / (100 + vatRate)).toFixed(2);
@@ -128,7 +128,7 @@ const contractsRouter = router({
       
       // Convert empty amount strings from the form to NULL for MySQL DECIMAL columns.
       const amount = normalizeOptionalDecimal(input.amount);
-      const vatRate = input.vatRate || 22;
+      const vatRate = input.vatRate ?? 22;
       const vatAmount = calculateVatAmount(amount, input.amountNotSpecified, vatRate);
 
       const contractId = await createContract({
