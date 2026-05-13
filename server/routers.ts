@@ -358,9 +358,8 @@ const contractsRouter = router({
           }
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
         console.error(
-          `[DOCUMENT] Failed to generate contract document for ${contract.contractNumber}: ${message}`
+          `[DOCUMENT] Failed to generate contract document for ${contract.contractNumber}: ${getErrorMessage(error)}`
         );
       }
 
@@ -400,9 +399,8 @@ const contractsRouter = router({
           }
         }
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
         console.error(
-          `[DOCUMENT] Failed to generate act for ${contract.contractNumber}: ${message}`
+          `[DOCUMENT] Failed to generate act for ${contract.contractNumber}: ${getErrorMessage(error)}`
         );
       }
 
